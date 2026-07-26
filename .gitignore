@@ -1,0 +1,198 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Build outputs
+.next/
+out/
+build/
+dist/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+dist/
+build/
+*.egg
+.eggs/
+*.whl
+
+# Virtual environments
+venv/
+env/
+.venv
+.env/
+env.bak/
+venv.bak/
+
+# Environment files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Debug
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Testing
+coverage/
+.nyc_output/
+.coverage
+htmlcov/
+.tox/
+.nox/
+pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Alembic migrations (keep structure, ignore generated)
+# Keep versions folder with __init__.py but ignore individual migrations
+# Actually, for this project, keep migrations in version control
+# db/migrations/versions/*.py  # Uncomment if you want to ignore migration files
+
+# Temporal
+temporal/
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+
+# Project specific
+*.db
+*.sqlite
+*.sqlite3
+dump.rdb
+
+# Docker
+.docker/
+
+# Misc
+*.pid
+*.seed
+*.pid.lock
+
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts
+
+# ESLint
+.eslintcache
+
+# Turborepo
+.turbo/
+EOF
+
+# Backend specific .gitignore (if you want a separate one)
+cat > backend/.gitignore << 'EOF'
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual environment
+venv/
+env/
+.venv
+
+# Environment
+.env
+*.env.local
+
+# IDE
+.vscode/
+.idea/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# MyPy
+.mypy_cache/
+
+# Ruff
+.ruff_cache/
+
+# Logs
+*.log
+
+# Database
+*.db
+*.sqlite
+EOF
+
+# Frontend specific .gitignore (Next.js adds one by default, but here's an enhanced version)
+cat > frontend/.gitignore << 'EOF'
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Testing
+coverage/
+.nyc_output/
+
+# Next.js
+.next/
+out/
+
+# Production
+build/
+
+# Misc
+.DS_Store
+*.pem
+
+# Debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Local env files
+.env*.local
+
+# Vercel
+.vercel
+
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts
+
+# Turbo
+.turbo/
+
+# ESLint
+.eslintcache
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
