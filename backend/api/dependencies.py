@@ -1,4 +1,3 @@
-# backend/api/dependencies.py
 from functools import lru_cache
 from temporalio.client import Client
 from ..db.database import get_db
