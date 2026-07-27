@@ -11,9 +11,7 @@ async def classify_event(
     should_wake, reason = classifier.should_wake_now(event_type)
 
     importance = "normal"
-    if reason == "critical_event":
-        importance = "critical"
-    elif reason == "agent_guidance":
+    if reason in ("agent_guidance", "unknown_event_escalation"):
         importance = "critical"
 
     return ClassifierDecision(should_wake=should_wake, reason=reason, importance=importance)
