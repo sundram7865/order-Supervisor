@@ -5,10 +5,10 @@ from uuid import UUID
 from pydantic import BaseModel
 from typing import Optional
 from datetime import datetime
-from ..dependencies import get_db, get_temporal_client
-from ...db.models import Run, Supervisor, ActivityLog
-from ...temporal.models.workflow_io import OrderSupervisorInput, SupervisorConfig
-from ...temporal.workflow import OrderSupervisorWorkflow
+from api.dependencies import get_db, get_temporal_client
+from db.models import Run, Supervisor, ActivityLog
+from temporal.models.workflow_io import OrderSupervisorInput, SupervisorConfig
+from temporal.workflow import OrderSupervisorWorkflow
 
 router = APIRouter(prefix="/runs", tags=["runs"])
 
@@ -19,100 +19,99 @@ class StartRunRequest(BaseModel):
     order_context: dict = {}
 
 
-class RunResponse(BaseModel):
-    id: str
-    supervisor_id: str
-    order_id: str
-    workflow_id: str
-    status: str
-    memory_summary: str
-    next_wake_at: Optional[str]
-    order_context: dict
-    extra_instructions: list[str]
-    final_summary: Optional[dict]
-    event_count: int
-    created_at: str
-    updated_at: str
+def run_to_dict(run) -> dict:
+    return {
+        "id": str(run.id),
+        "supervisor_id": str(run.supervisor_id),
+        "order_id": run.order_id,
+        "workflow_id": run.workflow_id,
+        "status": run.status,
+        "memory_summary": run.memory_summary,
+        "next_wake_at": run.next_wake_at.isoformat() if run.next_wake_at else None,
+        "order_context": run.order_context,
+        "extra_instructions": run.extra_instructions,
+        "final_summary": run.final_summary,
+        "event_count": run.event_count,
+        "created_at": run.created_at.isoformat(),
+        "updated_at": run.updated_at.isoformat(),
+    }
 
-    class Config:
-        from_attributes = True
 
-
-@router.post("", response_model=RunResponse)
+@router.post("")
 async def start_run(req: StartRunRequest, db: AsyncSession = Depends(get_db)):
-    # Get supervisor config
-    result = await db.execute(select(Supervisor).where(Supervisor.id == UUID(req.supervisor_id)))
-    supervisor = result.scalar_one_or_none()
-    if not supervisor:
+    sup = (await db.execute(select(Supervisor).where(Supervisor.id == UUID(req.supervisor_id)))).scalar_one_or_none()
+    if not sup:
         raise HTTPException(status_code=404, detail="Supervisor not found")
 
-    # Create run record
     run = Run(
         supervisor_id=UUID(req.supervisor_id),
         order_id=req.order_id,
-        workflow_id=str(UUID(req.supervisor_id)),  # Will be updated after workflow start
+        workflow_id="pending",
         order_context=req.order_context,
         status="active",
     )
     db.add(run)
     await db.commit()
+    await db.refresh(run)
 
-    # Update workflow_id to match run_id
     run.workflow_id = str(run.id)
     await db.commit()
     await db.refresh(run)
 
-    # Start Temporal workflow
-    temporal_client = await get_temporal_client()
-    await temporal_client.start_workflow(
+    tc = await get_temporal_client()
+    await tc.start_workflow(
         OrderSupervisorWorkflow.run,
         OrderSupervisorInput(
             run_id=str(run.id),
             supervisor_config=SupervisorConfig(
-                name=supervisor.name,
-                base_instruction=supervisor.base_instruction,
-                available_actions=supervisor.available_actions,
-                wake_aggressiveness=supervisor.wake_aggressiveness,
-                model_config=supervisor.model_config,
+                name=sup.name,
+                base_instruction=sup.base_instruction,
+                available_actions=sup.available_actions,
+                wake_aggressiveness=sup.wake_aggressiveness,
+                model_config=sup.model_config,
             ),
             order_context=req.order_context,
         ),
         id=str(run.id),
         task_queue="order-supervisor",
     )
+    return run_to_dict(run)
 
-    return run
 
-
-@router.get("", response_model=list[RunResponse])
+@router.get("")
 async def list_runs(status: Optional[str] = None, db: AsyncSession = Depends(get_db)):
-    query = select(Run).order_by(Run.created_at.desc())
+    q = select(Run).order_by(Run.created_at.desc())
     if status:
-        query = query.where(Run.status == status)
-    result = await db.execute(query)
-    return result.scalars().all()
+        q = q.where(Run.status == status)
+    runs = (await db.execute(q)).scalars().all()
+    return [run_to_dict(r) for r in runs]
 
 
-@router.get("/{run_id}", response_model=RunResponse)
+@router.get("/{run_id}")
 async def get_run(run_id: UUID, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(Run).where(Run.id == run_id))
-    run = result.scalar_one_or_none()
-    if not run:
-        raise HTTPException(status_code=404, detail="Run not found")
-    return run
+    r = (await db.execute(select(Run).where(Run.id == run_id))).scalar_one_or_none()
+    if not r:
+        raise HTTPException(status_code=404, detail="Not found")
+    return run_to_dict(r)
 
 
 @router.get("/{run_id}/timeline")
-async def get_run_timeline(
-    run_id: UUID,
-    kind: Optional[str] = None,
-    limit: int = 50,
-    db: AsyncSession = Depends(get_db),
-):
-    query = select(ActivityLog).where(ActivityLog.run_id == run_id)
+async def get_timeline(run_id: UUID, kind: Optional[str] = None, limit: int = 50, db: AsyncSession = Depends(get_db)):
+    q = select(ActivityLog).where(ActivityLog.run_id == run_id).order_by(ActivityLog.created_at.desc()).limit(limit)
     if kind:
-        query = query.where(ActivityLog.kind == kind)
-    query = query.order_by(ActivityLog.created_at.desc()).limit(limit)
-    result = await db.execute(query)
-    activities = result.scalars().all()
-    return {"activities": list(reversed(activities)), "count": len(activities)}
+        q = q.where(ActivityLog.kind == kind)
+    acts = (await db.execute(q)).scalars().all()
+    return {
+        "activities": [
+            {
+                "id": str(a.id),
+                "run_id": str(a.run_id),
+                "kind": a.kind,
+                "payload": a.payload,
+                "importance": a.importance,
+                "created_at": a.created_at.isoformat(),
+            }
+            for a in reversed(acts)
+        ],
+        "count": len(acts),
+    }

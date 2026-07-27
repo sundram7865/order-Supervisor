@@ -4,12 +4,13 @@ from temporalio.client import Client
 from temporalio.worker import Worker
 from dotenv import load_dotenv
 
-from .workflow import OrderSupervisorWorkflow
-from .activities.agent import run_agent_reasoning
-from .activities.actions import execute_action
-from .activities.classifier import classify_event
-from .activities.persistence import log_activity, persist_run_state, get_run_context
-from .activities.summarization import generate_final_summary
+# Package-relative imports (since this file is inside temporal/)
+from temporal.workflow import OrderSupervisorWorkflow
+from temporal.activities.agent import run_agent_reasoning
+from temporal.activities.actions import execute_action
+from temporal.activities.classifier import classify_event
+from temporal.activities.persistence import log_activity, persist_run_state, get_run_context
+from temporal.activities.summarization import generate_final_summary
 
 load_dotenv()
 
@@ -19,7 +20,6 @@ async def main():
         os.getenv("TEMPORAL_HOST", "localhost:7233"),
         namespace=os.getenv("TEMPORAL_NAMESPACE", "default"),
     )
-
     worker = Worker(
         client,
         task_queue=os.getenv("TEMPORAL_TASK_QUEUE", "order-supervisor"),
@@ -34,8 +34,7 @@ async def main():
             generate_final_summary,
         ],
     )
-
-    print(f"Worker started on task queue: {os.getenv('TEMPORAL_TASK_QUEUE', 'order-supervisor')}")
+    print(f"✅ Worker started on task queue: {os.getenv('TEMPORAL_TASK_QUEUE', 'order-supervisor')}")
     await worker.run()
 
 

@@ -1,12 +1,15 @@
-from functools import lru_cache
 from temporalio.client import Client
-from ..db.database import get_db
+from db.database import get_db
 import os
 
+_temporal_client: Client = None
 
-@lru_cache()
+
 async def get_temporal_client() -> Client:
-    return await Client.connect(
-        os.getenv("TEMPORAL_HOST", "localhost:7233"),
-        namespace=os.getenv("TEMPORAL_NAMESPACE", "default"),
-    )
+    global _temporal_client
+    if _temporal_client is None:
+        _temporal_client = await Client.connect(
+            os.getenv("TEMPORAL_HOST", "localhost:7233"),
+            namespace=os.getenv("TEMPORAL_NAMESPACE", "default"),
+        )
+    return _temporal_client

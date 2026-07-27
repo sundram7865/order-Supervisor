@@ -1,8 +1,7 @@
 import json
-from datetime import datetime
 from temporalio import activity
-from ...llm.client import get_llm_client
-from .persistence import get_run_context, persist_run_state, log_activity
+from llm.client import get_llm_client
+from temporal.activities.persistence import get_run_context, persist_run_state, log_activity
 
 
 @activity.defn
@@ -13,7 +12,6 @@ async def generate_final_summary(run_id: str) -> dict:
     run = context.get("run")
     activities = context.get("recent_activities", [])
 
-    # Get all actions taken
     actions_taken = []
     events = []
     for a in activities:
@@ -36,18 +34,7 @@ async def generate_final_summary(run_id: str) -> dict:
 == ALL EVENTS ==
 {json.dumps(events, indent=2)}
 
-Return JSON:
-{{
-    "summary": "Comprehensive summary of the order lifecycle",
-    "important_actions": ["Action 1", "Action 2"],
-    "key_learnings": ["Learning 1", "Learning 2"],
-    "feedback": "Recommendations for improvement",
-    "metrics": {{
-        "total_events": {len(events)},
-        "total_actions": {len(actions_taken)},
-        "critical_events": {sum(1 for e in events if 'fail' in str(e).lower() or 'delay' in str(e).lower())}
-    }}
-}}"""
+Return JSON with: summary, important_actions, key_learnings, feedback, metrics"""
 
     try:
         summary = await llm.complete_json(prompt)
@@ -57,16 +44,8 @@ Return JSON:
             "important_actions": [],
             "key_learnings": ["Automated summary generation failed"],
             "feedback": "Manual review recommended",
-            "metrics": {},
         }
 
     await persist_run_state(run_id, {"final_summary": summary, "status": "completed"})
-
-    await log_activity(
-        run_id=run_id,
-        kind="final_output",
-        payload=summary,
-        importance="critical",
-    )
-
+    await log_activity(run_id=run_id, kind="final_output", payload=summary, importance="critical")
     return summary

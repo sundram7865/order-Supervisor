@@ -1,7 +1,7 @@
 import os
 import json
+import re
 from typing import Any, Optional
-
 from dotenv import load_dotenv
 from google import genai
 
@@ -33,10 +33,24 @@ class LLMClient:
     ) -> Any:
         response = self.client.models.generate_content(
             model=self.default_model,
-            contents=f"{system}\n\n{prompt}",
+            contents=f"{system}\n\nReturn ONLY valid JSON, no markdown formatting, no code blocks:\n\n{prompt}",
         )
-
-        return json.loads(response.text)
+        text = response.text.strip()
+        
+        # Strip markdown code blocks if present
+        if text.startswith("```json"):
+            text = text[7:]
+        elif text.startswith("```"):
+            text = text[3:]
+        if text.endswith("```"):
+            text = text[:-3]
+        text = text.strip()
+        
+        try:
+            return json.loads(text)
+        except json.JSONDecodeError as e:
+            print(f"JSON parse error. Raw response: {text[:300]}")
+            raise e
 
 
 _llm_client: Optional[LLMClient] = None
@@ -44,8 +58,6 @@ _llm_client: Optional[LLMClient] = None
 
 def get_llm_client() -> LLMClient:
     global _llm_client
-
     if _llm_client is None:
         _llm_client = LLMClient()
-
     return _llm_client
